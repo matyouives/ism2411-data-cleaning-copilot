@@ -37,16 +37,72 @@ def find_column(df: pd.DataFrame, candidates):
     return None
 
 
+# Copilot-assisted function: load_data
+# What: Load a CSV file into a pandas DataFrame given a file path.
+# Why: Encapsulates file loading so it can be reused and tested separately.
+def load_data(file_path: str) -> pd.DataFrame:
+    p = Path(file_path)
+    return pd.read_csv(p)
+
+
+# Copilot-assisted function: clean_column_names
+# What: Normalize DataFrame column names to lowercase with underscores.
+# Why: Provides a small wrapper so column-name cleaning is separated from other logic.
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    return standardize_column_names(df)
+
+
+# Copilot-assisted function: handle_missing_values
+# What: Consistently handle missing/invalid price and quantity values in the DataFrame.
+# Why: Centralizes missing-value rules (median fill for price, zero for quantity)
+# so other code can rely on predictable numeric values.
+def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    if "price" in df.columns:
+        df["price"] = pd.to_numeric(df["price"], errors="coerce")
+        median_price = df["price"].replace([np.inf, -np.inf], np.nan).median(skipna=True)
+        if pd.isna(median_price):
+            median_price = 0.0
+        df["price"] = df["price"].fillna(median_price)
+
+    if "quantity" in df.columns:
+        df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
+        df["quantity"] = df["quantity"].fillna(0)
+
+    return df
+
+
+# Copilot-assisted function: remove_invalid_rows
+# What: Drop rows that contain clearly invalid numeric values (negative price/quantity).
+# Why: Negative values are assumed to be data-entry errors and should not be used
+# in downstream aggregations.
+def remove_invalid_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if "price" in df.columns:
+        before = len(df)
+        df = df[df["price"] >= 0]
+        removed = before - len(df)
+        if removed:
+            print(f"Removed {removed} rows with negative price")
+
+    if "quantity" in df.columns:
+        before = len(df)
+        df = df[df["quantity"] >= 0]
+        removed = before - len(df)
+        if removed:
+            print(f"Removed {removed} rows with negative quantity")
+
+    return df
+
+
 def clean_sales_data(src_path: Path, out_path: Path) -> pd.DataFrame:
     # Load data
     # What: Read the raw CSV from disk
     # Why: Start with the original dataset to perform deterministic cleaning
-    df = pd.read_csv(src_path)
+    df = load_data(str(src_path))
 
     # Standardize column names
     # What: Normalize column names to all-lowercase and underscores
     # Why: Prevent subtle bugs due to capitalization/spaces in headers
-    df = standardize_column_names(df)
+    df = clean_column_names(df)
 
     # Detect key columns (be tolerant of slightly different header names)
     product_col = find_column(df, ["product", "product_name", "name"])
@@ -82,37 +138,9 @@ def clean_sales_data(src_path: Path, out_path: Path) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
 
-    # Handle missing prices and quantities
-    # What: Fill missing prices with the median price and missing quantities with 0
-    # Why: Median price is a robust estimator for missing unit prices; quantity
-    # missing is assumed to mean zero or unreported — fill with 0 for consistency.
-    if "price" in df.columns:
-        median_price = df["price"].replace([np.inf, -np.inf], np.nan).median(skipna=True)
-        if pd.isna(median_price):
-            median_price = 0.0
-        df["price"] = pd.to_numeric(df["price"], errors="coerce")
-        df["price"] = df["price"].fillna(median_price)
-
-    if "quantity" in df.columns:
-        df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
-        df["quantity"] = df["quantity"].fillna(0)
-
-    # Remove rows with clearly invalid values (negative quantity or negative price)
-    # What: Drop rows where price < 0 or quantity < 0
-    # Why: Negative prices/quantities are usually data entry errors or incompatible records
-    if "price" in df.columns:
-        before = len(df)
-        df = df[df["price"] >= 0]
-        removed = before - len(df)
-        if removed:
-            print(f"Removed {removed} rows with negative price")
-
-    if "quantity" in df.columns:
-        before = len(df)
-        df = df[df["quantity"] >= 0]
-        removed = before - len(df)
-        if removed:
-            print(f"Removed {removed} rows with negative quantity")
+    # Handle missing values and remove invalid rows using helper functions
+    df = handle_missing_values(df)
+    df = remove_invalid_rows(df)
 
     # Final: reset index for cleanliness
     df = df.reset_index(drop=True)
