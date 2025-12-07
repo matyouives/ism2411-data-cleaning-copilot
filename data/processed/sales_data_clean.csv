@@ -1,0 +1,17 @@
+prodname,category,price,quantity,date_sold,total_sales
+USB Cable,"""Electronics""",7.99,3, 2024-01-02,23.97
+Laptop Stand,"""Office""",0.0,2, 2024-01-03,0.0
+Laptop  Stand,"""Office Supplies""",24.99,0, 2024-01-03,0.0
+Wireless Mouse,"""Electronics""",7.99,1, 2024-01-04,7.99
+wireless  mouse ,""" Electronics""",15.99,1, 2024-01-04,15.99
+Coffee Mug,"""Kitchen""",5.49,10, 2024-01-05,54.9
+Notebook,"""Office""",3.25,25, 2024-01-06,81.25
+Notebook ,"""Office""",3.25,0, 2024-01-06,0.0
+Desk Chair,"""Office""",89.99,1,,89.99
+Desk  Chair,""" Office""",89.99,1, 2024-01-07,89.99
+Water Bottle,"""Fitness""",12.0,4, 2024-01-07,48.0
+water bottle ,""" Fitness """,7.99,4, 2024-01-07,31.96
+Pen Set,"""Office""",4.5,12, 2024-01-08,54.0
+Standing Desk,"""Office""",199.99,1, 2024-01-08,199.99
+standing desk,""" Office Furniture """,199.99,1, 2024-01-08,199.99
+Stapler,"""Office""",6.25,5, 2024-01-09,31.25

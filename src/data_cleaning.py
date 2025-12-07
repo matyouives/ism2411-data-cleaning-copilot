@@ -93,6 +93,63 @@ def remove_invalid_rows(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# What: Remove rows that are entirely empty (all NaN) or contain only empty strings.
+# Why: Rows with no meaningful data should not be present in the cleaned output.
+def remove_empty_rows(df: pd.DataFrame) -> pd.DataFrame:
+    # Drop rows where every value is NA or empty string
+    before = len(df)
+    df = df.replace(r"^\s*$", np.nan, regex=True)
+    df = df.dropna(how="all")
+    removed = before - len(df)
+    if removed:
+        print(f"Removed {removed} fully-empty rows")
+    return df
+
+
+# What: Remove exact duplicate rows from the dataset.
+# Why: Duplicate records can bias aggregations and are usually unintentional.
+def deduplicate_rows(df: pd.DataFrame) -> pd.DataFrame:
+    before = len(df)
+    df = df.drop_duplicates()
+    removed = before - len(df)
+    if removed:
+        print(f"Removed {removed} duplicate rows")
+    return df
+
+
+# What: Normalize category names to title case and collapse similar variants.
+# Why: Consistent category names make grouping and analysis reliable.
+def normalize_categories(df: pd.DataFrame) -> pd.DataFrame:
+    if "category" in df.columns:
+        df["category"] = (
+            df["category"].astype(str)
+            .str.strip()
+            .str.replace(r"\s+", " ", regex=True)
+            .str.lower()
+            .replace({"electronics": "Electronics", "electronic": "Electronics"})
+            .str.title()
+        )
+    return df
+
+
+# What: Finalize column types, round prices, ensure integer quantities, and compute totals.
+# Why: Downstream analysis expects numeric types and a pre-computed total_sales column.
+def finalize_types_and_compute_totals(df: pd.DataFrame) -> pd.DataFrame:
+    if "price" in df.columns:
+        df["price"] = pd.to_numeric(df["price"], errors="coerce").fillna(0.0)
+        df["price"] = df["price"].round(2)
+
+    if "quantity" in df.columns:
+        df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").fillna(0)
+        # Cast to integer when sensible
+        df["quantity"] = df["quantity"].astype(int)
+
+    if "price" in df.columns and "quantity" in df.columns:
+        df["total_sales"] = (df["price"] * df["quantity"]).round(2)
+
+    return df
+
+
 def clean_sales_data(src_path: Path, out_path: Path) -> pd.DataFrame:
     # Load data
     # What: Read the raw CSV from disk
@@ -138,9 +195,21 @@ def clean_sales_data(src_path: Path, out_path: Path) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
 
-    # Handle missing values and remove invalid rows using helper functions
+    # Additional cleaning steps to make output meaningfully cleaner
+    # What: Remove fully-empty rows and exact duplicates
+    # Why: These records are not useful and can distort summaries
+    df = remove_empty_rows(df)
+    df = deduplicate_rows(df)
+
+    # Normalize category text for consistency
+    df = normalize_categories(df)
+
+    # Handle missing values and remove invalid numeric rows
     df = handle_missing_values(df)
     df = remove_invalid_rows(df)
+
+    # Finalize types, round prices, and compute derived columns
+    df = finalize_types_and_compute_totals(df)
 
     # Final: reset index for cleanliness
     df = df.reset_index(drop=True)
